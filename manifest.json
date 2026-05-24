@@ -1,0 +1,9 @@
+{
+  "name": "FinanzasPro",
+  "short_name": "FinanzasPro",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#6366f1",
+  "orientation": "portrait"
+}
