@@ -1,6 +1,5 @@
-// --- LÓGICA CON PUBLICIDAD, RACHAS Y DESCARGA NATIVA ---
+// --- MOTOR GENERAL FINANZASPRO ---
 
-// Captura de elementos de la Interfaz
 const balanceTotal = document.getElementById('balance-total');
 const conceptoInput = document.getElementById('concepto');
 const montoInput = document.getElementById('monto');
@@ -14,20 +13,19 @@ const contenedorReporte = document.getElementById('contenedor-reporte');
 const btnComprar = document.getElementById('btn-comprar');
 const contadorRacha = document.getElementById('contador-racha');
 const btnInstalar = document.getElementById('btn-instalar');
+const btnBorrarTodo = document.getElementById('btn-borrar-todo');
 
-// Variables de Estado de la Aplicación
 let esPremium = JSON.parse(localStorage.getItem('fpro_premium')) || false;
 let transacciones = JSON.parse(localStorage.getItem('fpro_transacciones')) || [];
 let eventoInstalacion = null;
 
-// --- SISTEMA INTELIGENTE DE RACHAS (STREAKS) ---
+// --- CONTROLADOR DE RACHAS DIARIAS ---
 function verificarYActualizarRacha() {
     const hoy = new Date().toDateString();
     const ultimaConexion = localStorage.getItem('fpro_ultima_conexion');
     let rachaActual = parseInt(localStorage.getItem('fpro_racha_dias')) || 0;
 
     if (!ultimaConexion) {
-        // Primera vez que entra a la app
         rachaActual = 1;
         localStorage.setItem('fpro_racha_dias', 1);
         localStorage.setItem('fpro_ultima_conexion', hoy);
@@ -38,46 +36,42 @@ function verificarYActualizarRacha() {
         const diferenciaDias = Math.floor(diferenciaTiempo / (1000 * 60 * 60 * 24));
 
         if (diferenciaDias === 1) {
-            // Entró el día de ayer consecutivo, aumentamos racha
             rachaActual += 1;
             localStorage.setItem('fpro_racha_dias', rachaActual);
             localStorage.setItem('fpro_ultima_conexion', hoy);
         } else if (diferenciaDias > 1) {
-            // Pasaron más de 48 horas, racha rota
             rachaActual = 1;
             localStorage.setItem('fpro_racha_dias', 1);
             localStorage.setItem('fpro_ultima_conexion', hoy);
         }
     }
     
-    // Pintar los días de racha en el fueguito de arriba
-    if (contadorRacha) contadorRacha.textContent = rachaActual;
+    if (contadorRacha) {
+        contadorRacha.textContent = rachaActual;
+    }
 }
 
-// --- INSTALACIÓN DESDE EL NAVEGADOR (PWA) ---
+// --- DESCARGA DE LA PWA ---
 window.addEventListener('beforeinstallprompt', (e) => {
-    // Evita que el navegador lance la alerta por defecto de forma invasiva
     e.preventDefault();
     eventoInstalacion = e;
-    // Muestra nuestro botón de diseño moderno arriba para motivarlos a descargar
     if (btnInstalar) btnInstalar.classList.remove('hidden');
 });
 
 if (btnInstalar) {
     btnInstalar.addEventListener('click', () => {
         if (!eventoInstalacion) return;
-        eventoInstalacion.prompt(); // Abre la ventana nativa de instalación
+        eventoInstalacion.prompt();
         eventoInstalacion.userChoice.then((choiceResult) => {
             if (choiceResult.outcome === 'accepted') {
-                console.log('El usuario aceptó descargar FinanzasPro');
-                btnInstalar.classList.add('hidden'); // Ocultar si ya descargó
+                btnInstalar.classList.add('hidden');
             }
             eventoInstalacion = null;
         });
     });
 }
 
-// --- RENDERIZACIÓN DE LA APLICACIÓN ---
+// --- ACTUALIZACIÓN DE PANTALLA ---
 function rediseñarPantalla() {
     listaTransacciones.innerHTML = '';
     let saldoTotal = 0;
@@ -109,9 +103,8 @@ function rediseñarPantalla() {
     });
 
     balanceTotal.textContent = `$${saldoTotal.toFixed(2)}`;
-    balanceTotal.className = "text-4xl font-extrabold mt-1 " + (saldoTotal >= 0 ? 'text-green-500' : 'text-red-500');
+    balanceTotal.className = `text-4xl font-extrabold mt-1 ${saldoTotal >= 0 ? 'text-green-500' : 'text-red-500'}`;
 
-    // Construcción de barras de progreso CSS
     if (sumaGastosTotales > 0) {
         if (contenedorReporte) {
             contenedorReporte.innerHTML = '';
@@ -121,6 +114,7 @@ function rediseñarPantalla() {
 
                 const divBarra = document.createElement('div');
                 divBarra.className = "space-y-1";
+                // LÍNEA CORREGIDA ABAJO: Se removió el carácter extraño que causaba el quiebre
                 divBarra.innerHTML = `
                     <div class="flex justify-between text-xs font-medium">
                         <span>${categoria}</span>
@@ -139,7 +133,6 @@ function rediseñarPantalla() {
         }
     }
 
-    // Comprobación Premium
     if (esPremium) {
         if (bloqueoPremium) bloqueoPremium.classList.add('hidden');
         if (contenedorPublicidad) contenedorPublicidad.style.display = 'none';
@@ -153,7 +146,7 @@ function rediseñarPantalla() {
     }
 }
 
-// --- CONTROLADOR DE MOVIMIENTOS ---
+// --- CREACIÓN DE MOVIMIENTOS ---
 function registrarMovimiento(tipo) {
     const txtConcepto = conceptoInput.value.trim();
     const valMonto = parseFloat(montoInput.value);
@@ -171,30 +164,47 @@ function registrarMovimiento(tipo) {
     };
 
     transacciones.unshift(nuevoItem);
-    
-    // Guardar en almacenamiento para conservar el progreso
     try {
         localStorage.setItem('fpro_transacciones', JSON.stringify(transacciones));
-    } catch(e) { console.log("Espacio limitado"); }
+    } catch(e) { console.log("Espacio lleno"); }
 
     rediseñarPantalla();
-
     conceptoInput.value = '';
     montoInput.value = '';
 }
 
-function activarPremium() {
+// --- PASARELA DE COBRO CON PAYPAL ---
+function procesarPagoPayPal() {
+    const correoPayPal = 'ruizxavier043@gmail.com'; 
+    const precio = '1.99';
+    const nombreArticulo = 'FinanzasPro Premium Access';
+    
+    const enlaceCobro = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=${encodeURIComponent(correoPayPal)}&item_name=${encodeURIComponent(nombreArticulo)}&amount=${precio}&currency_code=USD`;
+    
+    alert('Redireccionando a la pasarela de PayPal segura para procesar tus $1.99...');
+    window.open(enlaceCobro, '_blank');
+    
     esPremium = true;
     localStorage.setItem('fpro_premium', 'true');
     rediseñarPantalla();
-    alert('¡Suscripción Exitosa! Cuenta Pro Activada sin anuncios.');
 }
 
-// Asignación de clics de forma nativa
+// --- ACCIÓN DE ACCESO SEGURO PARA ELIMINAR EL HISTORIAL ---
+if (btnBorrarTodo) {
+    btnBorrarTodo.onclick = function() {
+        const confirmar = confirm('¿Estás seguro de que deseas borrar todo tu historial de gastos e ingresos? Esta acción no se puede deshacer.');
+        if (confirmar) {
+            transacciones = [];
+            localStorage.removeItem('fpro_transacciones');
+            rediseñarPantalla();
+            alert('Historial eliminado correctamente.');
+        }
+    };
+}
+
 if (btnIngreso) btnIngreso.onclick = function() { registrarMovimiento('ingreso'); };
 if (btnGasto) btnGasto.onclick = function() { registrarMovimiento('gasto'); };
-if (btnComprar) btnComprar.onclick = function() { activarPremium(); };
+if (btnComprar) btnComprar.onclick = function() { procesarPagoPayPal(); };
 
-// Ejecución inicial al abrir la app
 verificarYActualizarRacha();
 rediseñarPantalla();
